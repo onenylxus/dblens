@@ -1,0 +1,6 @@
+allowBuilds:
+  better-sqlite3: false
+  sharp: false
+  unrs-resolver: false
+blockExoticSubdeps: false
+nodeLinker: hoisted
