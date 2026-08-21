@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "electron/main.ts",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

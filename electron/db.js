@@ -1,8 +1,8 @@
 import Database from 'better-sqlite3';
-import path from 'path';
+import path from 'node:path';
 import { app } from 'electron';
 
-const dbPath = path.join(app.getPath('userData'), 'mydata.db');
+const dbPath = path.join(app.getPath('userData'), 'dblens-dummy.db');
 
 export const db = new Database(dbPath, { readonly: false });
 
