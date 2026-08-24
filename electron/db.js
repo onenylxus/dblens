@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import path from 'node:path';
+import path from 'path';
 import { app } from 'electron';
 
 const dbPath = path.join(app.getPath('userData'), 'dblens-dummy.db');
