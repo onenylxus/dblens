@@ -1,10 +1,19 @@
 import Database from 'better-sqlite3';
-import path from 'path';
-import { app } from 'electron';
 
-const dbPath = path.join(app.getPath('userData'), 'dblens-dummy.db');
+let database = null;
 
-export const db = new Database(dbPath, { readonly: false });
+export function openDatabase(dbPath) {
+  database?.close();
+  database = new Database(dbPath, { readonly: true });
+  database.pragma(`mmap_size = ${2 ** 28}`);
+}
 
-db.pragma('journal_mode = WAL');
-db.pragma(`mmap_size = ${2 ** 28}`);
+export function getDatabase() {
+  if (!database) throw new Error('No database has been selected');
+  return database;
+}
+
+export function closeDatabase() {
+  database?.close();
+  database = null;
+}
