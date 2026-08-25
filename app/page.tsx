@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button';
 type Column = { name: string; type: string };
 type Row = Record<string, unknown>;
 type TableInfo = { name: string };
+type SearchMode = 'basic' | 'advanced';
 
 const PAGE_SIZE = 50;
 
@@ -33,6 +34,25 @@ declare global {
       tables(): Promise<TableInfo[]>;
       tableData(
         tableName: string,
+        limit: number,
+        offset: number,
+      ): Promise<{
+        columns: Column[];
+        rows: Row[];
+        total: number;
+      }>;
+      searchData(
+        tableName: string,
+        limit: number,
+        offset: number,
+        keyword: string,
+      ): Promise<{
+        columns: Column[];
+        rows: Row[];
+        total: number;
+      }>;
+      sqlData(
+        sql: string,
         limit: number,
         offset: number,
       ): Promise<{
@@ -55,6 +75,11 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [choosingDatabase, setChoosingDatabase] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchMode, setSearchMode] = useState<SearchMode>('basic');
+  const [basicInput, setBasicInput] = useState('');
+  const [advancedInput, setAdvancedInput] = useState('');
+  const [appliedBasicSearch, setAppliedBasicSearch] = useState('');
+  const [appliedAdvancedSql, setAppliedAdvancedSql] = useState('');
 
   useEffect(() => {
     if (!selectedTable) return;
@@ -65,11 +90,18 @@ export default function Home() {
       setLoading(true);
       setError(null);
       try {
-        const result = await window.dbAPI.tableData(
-          tableName,
-          PAGE_SIZE,
-          page * PAGE_SIZE,
-        );
+        const offset = page * PAGE_SIZE;
+        const result = appliedAdvancedSql.trim()
+          ? await window.dbAPI.sqlData(appliedAdvancedSql, PAGE_SIZE, offset)
+          : appliedBasicSearch.trim()
+            ? await window.dbAPI.searchData(
+                tableName,
+                PAGE_SIZE,
+                offset,
+                appliedBasicSearch,
+              )
+            : await window.dbAPI.tableData(tableName, PAGE_SIZE, offset);
+
         if (!cancelled) {
           setColumns(result.columns);
           setRows(result.rows);
@@ -86,7 +118,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [selectedTable, page]);
+  }, [selectedTable, page, appliedBasicSearch, appliedAdvancedSql]);
 
   async function chooseDatabase() {
     setChoosingDatabase(true);
@@ -101,6 +133,11 @@ export default function Home() {
       setRows([]);
       setColumns([]);
       setPage(0);
+      setSearchMode('basic');
+      setBasicInput('');
+      setAdvancedInput('');
+      setAppliedBasicSearch('');
+      setAppliedAdvancedSql('');
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -111,6 +148,47 @@ export default function Home() {
   function selectTable(tableName: string) {
     setSelectedTable(tableName);
     setPage(0);
+    setBasicInput('');
+    setAppliedBasicSearch('');
+    const defaultSql = `SELECT * FROM "${tableName.replaceAll('"', '""')}"`;
+    setAdvancedInput(defaultSql);
+    setAppliedAdvancedSql('');
+  }
+
+  function applySearch() {
+    if (!selectedTable) return;
+
+    setError(null);
+    setPage(0);
+    if (searchMode === 'basic') {
+      setAppliedBasicSearch(basicInput.trim());
+      setAppliedAdvancedSql('');
+      return;
+    }
+
+    const sql = advancedInput.trim();
+    if (!sql) {
+      setError('Enter a SELECT query for advanced mode.');
+      return;
+    }
+
+    setAppliedAdvancedSql(sql);
+    setAppliedBasicSearch('');
+  }
+
+  function clearSearch() {
+    setError(null);
+    setPage(0);
+    setBasicInput('');
+    setAppliedBasicSearch('');
+    setAppliedAdvancedSql('');
+    if (selectedTable) {
+      setAdvancedInput(
+        `SELECT * FROM "${selectedTable.replaceAll('"', '""')}"`,
+      );
+    } else {
+      setAdvancedInput('');
+    }
   }
 
   function displayValue(value: unknown) {
@@ -174,6 +252,77 @@ export default function Home() {
                   {table.name}
                 </Button>
               ))}
+            </div>
+          )}
+
+          {selectedTable && (
+            <div className="mb-4 rounded-md border p-3">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <Button
+                  variant={searchMode === 'basic' ? 'default' : 'outline'}
+                  onClick={() => setSearchMode('basic')}
+                  size="sm"
+                >
+                  Basic mode
+                </Button>
+                <Button
+                  variant={searchMode === 'advanced' ? 'default' : 'outline'}
+                  onClick={() => setSearchMode('advanced')}
+                  size="sm"
+                >
+                  Advanced mode
+                </Button>
+              </div>
+
+              {searchMode === 'basic' ? (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    placeholder="Search any column by keyword (partial matches supported)"
+                    value={basicInput}
+                    onChange={(event) => setBasicInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') applySearch();
+                    }}
+                  />
+                  <div className="flex gap-2">
+                    <Button onClick={applySearch} disabled={loading}>
+                      Search
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={clearSearch}
+                      disabled={loading}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <input
+                    className="h-9 w-full rounded-md border bg-background px-3 text-sm font-mono outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    placeholder='Example: SELECT * FROM "table_name" WHERE status = "active"'
+                    value={advancedInput}
+                    onChange={(event) => setAdvancedInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') applySearch();
+                    }}
+                  />
+                  <div className="flex gap-2">
+                    <Button onClick={applySearch} disabled={loading}>
+                      Run query
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={clearSearch}
+                      disabled={loading}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

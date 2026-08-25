@@ -5,6 +5,10 @@ contextBridge.exposeInMainWorld('dbAPI', {
   tables: () => ipcRenderer.invoke('db:tables'),
   tableData: (tableName, limit, offset) =>
     ipcRenderer.invoke('db:table-data', tableName, limit, offset),
+  searchData: (tableName, limit, offset, keyword) =>
+    ipcRenderer.invoke('db:search-data', tableName, limit, offset, keyword),
+  sqlData: (sql, limit, offset) =>
+    ipcRenderer.invoke('db:sql-data', sql, limit, offset),
   all: (sql, params) => ipcRenderer.invoke('db:all', sql, params),
   get: (sql, params) => ipcRenderer.invoke('db:get', sql, params),
 });

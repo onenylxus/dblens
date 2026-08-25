@@ -157,6 +157,63 @@ ipcMain.handle('db:table-data', (_event, tableName, limit, offset) => {
   return { columns, rows, total };
 });
 
+ipcMain.handle(
+  'db:search-data',
+  (_event, tableName, limit, offset, keyword) => {
+    const database = getDatabase();
+    const escapedName = `"${String(tableName).replaceAll('"', '""')}"`;
+    const columns = database.prepare(`PRAGMA table_info(${escapedName})`).all();
+    const term = `%${String(keyword ?? '').trim()}%`;
+
+    // Build a WHERE clause that checks every column for a partial text match.
+    const whereClause =
+      columns.length === 0
+        ? '1 = 0'
+        : columns
+            .map((column) => {
+              const escapedColumn = `"${String(column.name).replaceAll('"', '""')}"`;
+              return `CAST(${escapedColumn} AS TEXT) LIKE ?`;
+            })
+            .join(' OR ');
+
+    const queryParams = new Array(columns.length).fill(term);
+    const rows = database
+      .prepare(
+        `SELECT * FROM ${escapedName} WHERE ${whereClause} LIMIT ? OFFSET ?`,
+      )
+      .all(...queryParams, limit, offset);
+    const total = database
+      .prepare(
+        `SELECT COUNT(*) AS count FROM ${escapedName} WHERE ${whereClause}`,
+      )
+      .get(...queryParams).count;
+
+    return { columns, rows, total };
+  },
+);
+
+ipcMain.handle('db:sql-data', (_event, sql, limit, offset) => {
+  const trimmedSql = String(sql ?? '').trim();
+  if (!/^select\b/i.test(trimmedSql)) {
+    throw new Error('Advanced mode only supports SELECT queries.');
+  }
+
+  const database = getDatabase();
+  const baseSql = trimmedSql.replace(/;\s*$/, '');
+  const pagedSql = `SELECT * FROM (${baseSql}) AS query LIMIT ? OFFSET ?`;
+  const countSql = `SELECT COUNT(*) AS count FROM (${baseSql}) AS query`;
+
+  const rows = database.prepare(pagedSql).all(limit, offset);
+  const columnDetails = database.prepare(baseSql).columns();
+  const columns = columnDetails.map((column) => ({
+    name: column.name,
+    type: 'query',
+  }));
+  const total = database.prepare(countSql).get().count;
+
+  return { columns, rows, total };
+});
+
 ipcMain.handle('db:all', (_event, sql, params) => {
   const stmt = getDatabase().prepare(sql);
   return stmt.all(...(params ?? []));
