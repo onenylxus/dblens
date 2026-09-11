@@ -45,16 +45,16 @@ export default function Home() {
   const pageCount = Math.ceil(total / pageSize);
 
   return (
-    <main className="min-h-screen bg-background p-6">
-      <Card className="mx-auto max-w-6xl">
-        <CardHeader>
+    <main className="h-screen overflow-hidden bg-background p-6">
+      <Card className="mx-auto h-full max-w-6xl">
+        <CardHeader className="shrink-0">
           <DatabaseHeader
             databasePath={databasePath}
             choosingDatabase={choosingDatabase}
             onChooseDatabase={chooseDatabase}
           />
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-h-0 flex-1 overflow-y-auto">
           {error && (
             <Alert variant="destructive" className="mb-4">
               <AlertDescription>{error}</AlertDescription>

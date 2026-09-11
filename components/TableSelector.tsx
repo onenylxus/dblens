@@ -18,11 +18,13 @@ export function TableSelector({
   }
 
   return (
-    <div className="mb-4 flex flex-wrap gap-2">
+    <div className="mb-4 flex w-full flex-nowrap gap-2 overflow-x-auto pb-2">
       {tables.map((table) => (
         <Button
           key={table.name}
+          className="shrink-0"
           variant={selectedTable === table.name ? 'default' : 'outline'}
+          size="sm"
           onClick={() => onSelectTable(table.name)}
         >
           {table.name}
